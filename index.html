@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>電子圍籬管理 — Module A Prototype</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- leaflet-draw CSS removed: using custom draw logic -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+<style>
+  :root {
+    --primary: #4F46E5;
+    --primary-light: #EEF2FF;
+    --primary-hover: #4338CA;
+    --danger: #EF4444;
+    --danger-light: #FEF2F2;
+    --success: #10B981;
+    --success-light: #ECFDF5;
+    --warning: #F59E0B;
+    --warning-light: #FFFBEB;
+    --gray-50: #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-600: #4B5563;
+    --gray-700: #374151;
+    --gray-800: #1F2937;
+    --gray-900: #111827;
+    --sidebar-w: 220px;
+    --header-h: 56px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--gray-50); color: var(--gray-800); font-size: 14px; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-w);
+    background: var(--gray-900); color: #fff; z-index: 100; display: flex; flex-direction: column;
+  }
+  .sidebar-logo { padding: 16px 20px; font-size: 15px; font-weight: 700; border-bottom: 1px solid var(--gray-700); display: flex; align-items: center; gap: 10px; }
+  .sidebar-logo .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+  .sidebar-section { padding: 12px 0 4px 20px; font-size: 11px; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; }
+  .sidebar-item {
+    padding: 9px 20px; cursor: pointer; font-size: 13px; color: var(--gray-300);
+    display: flex; align-items: center; gap: 10px; transition: all 0.15s;
+  }
+  .sidebar-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .sidebar-item.active { background: var(--primary); color: #fff; border-radius: 0; }
+  .sidebar-item .icon { width: 18px; text-align: center; font-size: 15px; }
+
+  /* ── Header ── */
+  .header {
+    position: fixed; top: 0; left: var(--sidebar-w); right: 0; height: var(--header-h);
+    background: #fff; border-bottom: 1px solid var(--gray-200); display: flex;
+    align-items: center; justify-content: space-between; padding: 0 24px; z-index: 90;
+  }
+  .header-title { font-size: 16px; font-weight: 600; }
+  .header-actions { display: flex; gap: 8px; }
+
+  /* ── Main ── */
+  .main { margin-left: var(--sidebar-w); margin-top: var(--header-h); padding: 24px; min-height: calc(100vh - var(--header-h)); }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+    border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer;
+    border: 1px solid transparent; transition: all 0.15s; white-space: nowrap;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-secondary { background: #fff; color: var(--gray-700); border-color: var(--gray-300); }
+  .btn-secondary:hover { background: var(--gray-50); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #DC2626; }
+  .btn-ghost { background: transparent; color: var(--gray-500); }
+  .btn-ghost:hover { background: var(--gray-100); color: var(--gray-700); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-lg { padding: 10px 24px; font-size: 14px; }
+
+  /* ── Cards & Panels ── */
+  .card { background: #fff; border-radius: 12px; border: 1px solid var(--gray-200); }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; justify-content: space-between; }
+  .card-body { padding: 20px; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--gray-500); background: var(--gray-50); border-bottom: 1px solid var(--gray-200); white-space: nowrap; }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--gray-100); font-size: 13px; }
+  tr:hover td { background: var(--gray-50); }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+    border-radius: 100px; font-size: 11px; font-weight: 500;
+  }
+  .badge-circle { background: var(--primary-light); color: var(--primary); }
+  .badge-polygon { background: var(--warning-light); color: #B45309; }
+  .badge-count { background: var(--gray-100); color: var(--gray-600); padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+
+  /* ── Search & Filters ── */
+  .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .search-input {
+    padding: 8px 12px 8px 36px; border: 1px solid var(--gray-300); border-radius: 8px;
+    font-size: 13px; width: 280px; outline: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239CA3AF' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") 12px center no-repeat;
+  }
+  .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+  select.filter-select {
+    padding: 8px 32px 8px 12px; border: 1px solid var(--gray-300); border-radius: 8px;
+    font-size: 13px; background: #fff; outline: none; cursor: pointer;
+    appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236B7280' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center;
+  }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 200; justify-content: center; align-items: flex-start; padding-top: 40px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #fff; border-radius: 16px; width: 95%; max-width: 960px;
+    max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 48px rgba(0,0,0,0.16);
+  }
+  .modal-header {
+    padding: 20px 24px; border-bottom: 1px solid var(--gray-200);
+    display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: #fff; z-index: 10; border-radius: 16px 16px 0 0;
+  }
+  .modal-header h2 { font-size: 16px; font-weight: 600; }
+  .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--gray-400); padding: 4px; }
+  .modal-close:hover { color: var(--gray-700); }
+  .modal-body { padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--gray-200); display: flex; justify-content: flex-end; gap: 8px; position: sticky; bottom: 0; background: #fff; border-radius: 0 0 16px 16px; }
+
+  /* ── Form ── */
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 13px; font-weight: 500; color: var(--gray-700); margin-bottom: 6px; }
+  .form-label .required { color: var(--danger); margin-left: 2px; }
+  .form-input {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--gray-300); border-radius: 8px;
+    font-size: 13px; outline: none; transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+  .form-hint { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--gray-200); margin-bottom: 20px; }
+  .tab {
+    padding: 10px 20px; font-size: 13px; font-weight: 500; color: var(--gray-500);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s;
+  }
+  .tab:hover { color: var(--gray-700); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* ── Map ── */
+  .map-container { height: 380px; border-radius: 8px; overflow: hidden; border: 1px solid var(--gray-200); margin-bottom: 16px; }
+  #list-map { height: 280px; border-radius: 8px; overflow: hidden; border: 1px solid var(--gray-200); position: relative; z-index: 0; }
+
+  /* ── Slider ── */
+  .radius-control { display: flex; align-items: center; gap: 12px; }
+  .radius-slider { flex: 1; -webkit-appearance: none; height: 6px; border-radius: 3px; background: var(--gray-200); outline: none; }
+  .radius-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); cursor: pointer; }
+  .radius-value { font-size: 14px; font-weight: 600; color: var(--primary); min-width: 60px; text-align: right; }
+
+  /* ── Import preview ── */
+  .import-zone {
+    border: 2px dashed var(--gray-300); border-radius: 12px; padding: 40px; text-align: center;
+    cursor: pointer; transition: all 0.15s; background: var(--gray-50);
+  }
+  .import-zone:hover { border-color: var(--primary); background: var(--primary-light); }
+  .import-zone .icon { font-size: 36px; margin-bottom: 8px; }
+  .import-zone p { color: var(--gray-500); font-size: 13px; }
+
+  .preview-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; margin-bottom: 4px; font-size: 13px; }
+  .preview-row.success { background: var(--success-light); }
+  .preview-row.error { background: var(--danger-light); }
+  .preview-status { width: 20px; text-align: center; }
+  .preview-name { flex: 1; font-weight: 500; }
+  .preview-detail { color: var(--gray-500); font-size: 12px; }
+  .preview-error-msg { color: var(--danger); font-size: 12px; }
+
+  /* ── Stats ── */
+  .stats { display: flex; gap: 16px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; padding: 16px 20px; flex: 1; }
+  .stat-card .label { font-size: 12px; color: var(--gray-500); margin-bottom: 4px; }
+  .stat-card .value { font-size: 22px; font-weight: 700; }
+  .stat-card .value.purple { color: var(--primary); }
+  .stat-card .value.green { color: var(--success); }
+  .stat-card .value.amber { color: var(--warning); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px;
+    background: var(--gray-800); color: #fff; font-size: 13px; z-index: 999;
+    display: none; align-items: center; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  }
+  .toast.show { display: flex; animation: slideUp 0.3s ease; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Delete confirm ── */
+  .confirm-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 300; justify-content: center; align-items: center;
+  }
+  .confirm-overlay.active { display: flex; }
+  .confirm-box { background: #fff; border-radius: 12px; padding: 24px; width: 400px; text-align: center; }
+  .confirm-box h3 { margin-bottom: 8px; font-size: 16px; }
+  .confirm-box p { color: var(--gray-500); font-size: 13px; margin-bottom: 20px; }
+  .confirm-box .actions { display: flex; gap: 8px; justify-content: center; }
+
+  /* ── Responsive detail panel ── */
+  .detail-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .detail-split .form-side { }
+  .detail-split .map-side { }
+  @media (max-width: 768px) { .detail-split { grid-template-columns: 1fr; } }
+
+  /* ── Empty state ── */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--gray-400); }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state h3 { font-size: 16px; color: var(--gray-600); margin-bottom: 6px; }
+
+  /* ── Page indicator ── */
+  .page-indicator { font-size: 12px; color: var(--gray-500); padding: 12px 0; text-align: right; }
+
+  /* -- Dropdown -- */
+  .dropdown { position: relative; display: inline-block; }
+  .dropdown-menu {
+    display: none; position: absolute; right: 0; top: 100%; min-width: 180px;
+    background: #fff; border: 1px solid var(--gray-200); border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1); z-index: 50; padding: 4px; margin-top: 4px;
+  }
+  .dropdown-menu.show { display: block; }
+  .dropdown-item {
+    padding: 8px 12px; font-size: 13px; cursor: pointer; border-radius: 6px;
+    display: flex; align-items: center; gap: 8px; color: var(--gray-700);
+  }
+  .dropdown-item:hover { background: var(--gray-50); }
+  .dropdown-item.danger { color: var(--danger); }
+  .dropdown-item.danger:hover { background: var(--danger-light); }
+
+  /* Vertex tooltip */
+  .vertex-tooltip { background: rgba(0,0,0,0.7) !important; color: #fff !important; border: none !important; border-radius: 4px !important; padding: 2px 6px !important; font-size: 11px !important; font-weight: 600 !important; box-shadow: none !important; }
+  .vertex-tooltip::before { border-right-color: rgba(0,0,0,0.7) !important; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo"><span class="dot"></span> 3drens TMS</div>
+  <div class="sidebar-section">營運管理</div>
+  <div class="sidebar-item"><span class="icon">📋</span> 訂單管理</div>
+  <div class="sidebar-item"><span class="icon">📊</span> 訂單報表</div>
+  <div class="sidebar-item"><span class="icon">📦</span> 貨品報表</div>
+  <div class="sidebar-section">車隊管理</div>
+  <div class="sidebar-item"><span class="icon">👤</span> 司機管理</div>
+  <div class="sidebar-item"><span class="icon">🚛</span> 車輛管理</div>
+  <div class="sidebar-item active"><span class="icon">📍</span> 電子圍籬</div>
+  <div class="sidebar-section">系統</div>
+  <div class="sidebar-item"><span class="icon">👥</span> 客戶管理</div>
+  <div class="sidebar-item"><span class="icon">🔔</span> 通知中心</div>
+  <div class="sidebar-item"><span class="icon">⚙️</span> 設定</div>
+</nav>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-title">電子圍籬管理</div>
+  <div class="header-actions">
+    <div class="dropdown">
+      <button class="btn btn-primary" onclick="toggleCreateDropdown()">+ 新增圍籬</button>
+      <div class="dropdown-menu" id="createDropdown">
+        <div class="dropdown-item" onclick="openModal('circle')">
+          <span>⭕</span> 地址建立（圓形）
+        </div>
+        <div class="dropdown-item" onclick="openModal('polygon')">
+          <span>🔷</span> 地圖繪製（多邊形）
+        </div>
+        <div class="dropdown-item" onclick="openModal('import')">
+          <span>📄</span> 批次匯入
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Main Content -->
+<div class="main" id="mainContent">
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">圍籬總數</div>
+      <div class="value purple" id="statTotal">12</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">圓形圍籬</div>
+      <div class="value green" id="statCircle">9</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">多邊形圍籬</div>
+      <div class="value amber" id="statPolygon">3</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <input class="search-input" type="text" placeholder="搜尋圍籬名稱、地址..." oninput="filterTable(this.value)" />
+    <select class="filter-select" onchange="filterByType(this.value)">
+      <option value="all">所有類型</option>
+      <option value="circle">圓形</option>
+      <option value="polygon">多邊形</option>
+    </select>
+  </div>
+
+  <!-- Map Preview -->
+  <div id="list-map" style="margin-bottom:20px;"></div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="table-wrap">
+      <table id="geofenceTable">
+        <thead>
+          <tr>
+            <th>圍籬名稱</th>
+            <th>類型</th>
+            <th>地址</th>
+            <th>半徑</th>
+            <th>綁定站點</th>
+            <th>建立時間</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="page-indicator">顯示 1-12 筆，共 12 筆</div>
+  </div>
+</div>
+
+<!-- ═══════ Create Circle Modal ═══════ -->
+<div class="modal-overlay" id="circleModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🟢 地址建立圓形圍籬</h2>
+      <button class="modal-close" onclick="closeAllModals()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-split">
+        <div class="form-side">
+          <div class="form-group">
+            <label class="form-label">圍籬名稱 <span class="required">*</span></label>
+            <input class="form-input" id="circleName" placeholder="例：僑力觀音廠" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">地址 <span class="required">*</span></label>
+            <input class="form-input" id="circleAddress" placeholder="輸入地址後按 Enter 定位" onkeydown="if(event.key==='Enter')geocodeCircle()" />
+            <div class="form-hint">輸入地址後按 Enter 自動定位，或直接在地圖上點擊設定中心點（會自動帶出地址）</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">半徑 <span class="required">*</span></label>
+            <div class="radius-control">
+              <input type="range" class="radius-slider" id="radiusSlider" min="50" max="5000" value="200" step="50" oninput="updateRadius(this.value)" />
+              <span class="radius-value" id="radiusValue">200m</span>
+            </div>
+            <div class="form-hint">範圍 50m ~ 5,000m</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">備註</label>
+            <input class="form-input" placeholder="選填" />
+          </div>
+        </div>
+        <div class="map-side">
+          <div class="map-container" id="circleMap"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAllModals()">取消</button>
+      <button class="btn btn-primary" onclick="saveCircle()">儲存圍籬</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ Create Polygon Modal ═══════ -->
+<div class="modal-overlay" id="polygonModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🔷 地圖繪製多邊形圍籬</h2>
+      <button class="modal-close" onclick="closeAllModals()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row" style="margin-bottom:16px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">圍籬名稱 <span class="required">*</span></label>
+          <input class="form-input" id="polygonName" placeholder="例：僑力觀音廠區" />
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">搜尋地址（移動地圖）</label>
+          <input class="form-input" id="polygonSearch" placeholder="輸入地址後按 Enter 移動地圖" onkeydown="if(event.key==='Enter')searchPolygonLocation()" />
+        </div>
+      </div>
+
+      <!-- Vertex counter bar -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+        <div id="vertexCounter" style="font-size:12px;color:var(--gray-400);">頂點：0 個（還需 3 個）</div>
+      </div>
+
+      <div class="map-container" id="polygonMap" style="height:420px;position:relative;">
+        <div id="mapCursorHint" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(0,0,0,0.7);color:#fff;padding:5px 14px;border-radius:20px;font-size:12px;pointer-events:none;">
+          點擊地圖加入頂點
+        </div>
+      </div>
+      <div class="form-hint" style="margin-top:8px;">點擊地圖加入頂點（至少 3 個）。頂點可拖曳調整位置，右鍵點擊頂點可刪除。</div>
+      <div class="form-group" style="margin-top:12px;">
+        <label class="form-label">備註</label>
+        <input class="form-input" placeholder="選填" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="resetPolygon()">重新繪製</button>
+      <button class="btn btn-secondary" onclick="closeAllModals()">取消</button>
+      <button class="btn btn-primary" onclick="savePolygon()">儲存圍籬</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ Import Modal ═══════ -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>📄 批次匯入圍籬</h2>
+      <button class="modal-close" onclick="closeAllModals()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <!-- Step indicator -->
+      <div style="display:flex;gap:8px;margin-bottom:24px;">
+        <div class="badge badge-circle" id="importStep1" style="padding:4px 12px;font-size:13px;font-weight:600;">1. 上傳檔案</div>
+        <div class="badge" id="importStep2" style="padding:4px 12px;font-size:13px;background:var(--gray-100);color:var(--gray-400);">2. 預覽確認</div>
+        <div class="badge" id="importStep3" style="padding:4px 12px;font-size:13px;background:var(--gray-100);color:var(--gray-400);">3. 匯入結果</div>
+      </div>
+
+      <!-- Step 1: Upload -->
+      <div id="importStepUpload">
+        <div class="import-zone" onclick="simulateUpload()">
+          <div class="icon">📁</div>
+          <p><b>點擊上傳</b> 或拖曳 Excel / CSV 檔案至此</p>
+          <p style="margin-top:8px;">單次上限 500 筆，僅支援圓形圍籬</p>
+        </div>
+        <div style="margin-top:12px;">
+          <button class="btn btn-ghost btn-sm" onclick="showToast('模板已下載')">⬇ 下載匯入模板</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Preview (hidden initially) -->
+      <div id="importStepPreview" style="display:none;">
+        <div style="display:flex;gap:16px;margin-bottom:16px;">
+          <div style="flex:1;padding:12px;background:var(--success-light);border-radius:8px;text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:var(--success);">5</div>
+            <div style="font-size:12px;color:var(--gray-500);">成功</div>
+          </div>
+          <div style="flex:1;padding:12px;background:var(--danger-light);border-radius:8px;text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:var(--danger);">1</div>
+            <div style="font-size:12px;color:var(--gray-500);">失敗</div>
+          </div>
+        </div>
+        <div id="previewList">
+          <div class="preview-row success"><span class="preview-status">✅</span><span class="preview-name">萊爾富 五股店</span><span class="preview-detail">新北市五股區成泰路三段 200 號 · 200m</span></div>
+          <div class="preview-row success"><span class="preview-status">✅</span><span class="preview-name">萊爾富 桃園中正店</span><span class="preview-detail">桃園市中正路 88 號 · 200m</span></div>
+          <div class="preview-row success"><span class="preview-status">✅</span><span class="preview-name">萊爾富 新竹科學店</span><span class="preview-detail">新竹市科學路 55 號 · 200m</span></div>
+          <div class="preview-row success"><span class="preview-status">✅</span><span class="preview-name">萊爾富 台中逢甲店</span><span class="preview-detail">台中市西屯區逢甲路 12 號 · 200m</span></div>
+          <div class="preview-row success"><span class="preview-status">✅</span><span class="preview-name">萊爾富 高雄三多店</span><span class="preview-detail">高雄市三多路 300 號 · 200m</span></div>
+          <div class="preview-row error"><span class="preview-status">❌</span><span class="preview-name">萊爾富 ???店</span><span class="preview-error-msg">地址定位失敗：地址欄位為空</span></div>
+        </div>
+        <div class="map-container" id="importMap" style="height:240px;margin-top:16px;"></div>
+      </div>
+
+      <!-- Step 3: Result (hidden initially) -->
+      <div id="importStepResult" style="display:none;text-align:center;padding:40px 0;">
+        <div style="font-size:48px;margin-bottom:12px;">🎉</div>
+        <h3 style="margin-bottom:8px;">匯入完成</h3>
+        <p style="color:var(--gray-500);">成功匯入 <b style="color:var(--success);">5</b> 筆，失敗 <b style="color:var(--danger);">1</b> 筆</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAllModals()">取消</button>
+      <button class="btn btn-primary" id="importNextBtn" onclick="importNextStep()" style="display:none;">確認匯入 5 筆</button>
+      <button class="btn btn-primary" id="importDoneBtn" onclick="closeAllModals()" style="display:none;">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ Detail / Edit Modal ═══════ -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="detailTitle">圍籬詳情</h2>
+      <button class="modal-close" onclick="closeAllModals()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <div class="tab active" onclick="switchDetailTab(this, 'detailInfo')">基本資訊</div>
+        <div class="tab" onclick="switchDetailTab(this, 'detailSites')">綁定站點</div>
+        <div class="tab" onclick="switchDetailTab(this, 'detailHistory')">異動紀錄</div>
+      </div>
+
+      <!-- Info tab -->
+      <div id="detailInfo">
+        <div class="detail-split">
+          <div class="form-side">
+            <div class="form-group">
+              <label class="form-label">圍籬名稱</label>
+              <input class="form-input" id="detailName" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">類型</label>
+              <input class="form-input" id="detailType" disabled style="background:var(--gray-50);" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">地址</label>
+              <input class="form-input" id="detailAddress" />
+            </div>
+            <div class="form-group" id="detailRadiusGroup">
+              <label class="form-label">半徑</label>
+              <div class="radius-control">
+                <input type="range" class="radius-slider" id="detailRadiusSlider" min="50" max="5000" value="200" step="50" oninput="updateDetailRadius(this.value)" />
+                <span class="radius-value" id="detailRadiusValue">200m</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">備註</label>
+              <input class="form-input" id="detailMemo" placeholder="無" />
+            </div>
+          </div>
+          <div class="map-side">
+            <div class="map-container" id="detailMap"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sites tab -->
+      <div id="detailSites" style="display:none;">
+        <table>
+          <thead><tr><th>收件人</th><th>地址</th><th>配對方式</th></tr></thead>
+          <tbody>
+            <tr><td>台積電 T12P8</td><td>新竹市科學園區力行路 1 號</td><td><span class="badge badge-circle">自動配對</span></td></tr>
+            <tr><td>台積電 T15P6</td><td>台中市科學園區科雅路 6 號</td><td><span class="badge badge-circle">自動配對</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- History tab -->
+      <div id="detailHistory" style="display:none;">
+        <table>
+          <thead><tr><th>時間</th><th>操作者</th><th>動作</th><th>變更內容</th></tr></thead>
+          <tbody>
+            <tr><td>2026-04-15 14:22</td><td>王小明</td><td>編輯</td><td>半徑 200m → 300m</td></tr>
+            <tr><td>2026-04-10 09:15</td><td>王小明</td><td>新增</td><td>建立圓形圍籬</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="confirmDelete()" style="margin-right:auto;">刪除圍籬</button>
+      <button class="btn btn-secondary" onclick="closeAllModals()">取消</button>
+      <button class="btn btn-primary" onclick="saveEdit()">儲存變更</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm -->
+<div class="confirm-overlay" id="deleteConfirm">
+  <div class="confirm-box">
+    <h3>確認刪除圍籬？</h3>
+    <p id="deleteMsg">此圍籬目前有 <b>2</b> 筆進行中的訂單正在偵測，刪除後將停止偵測。此操作無法復原。</p>
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="closeConfirm()">取消</button>
+      <button class="btn btn-danger" onclick="doDelete()">確認刪除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Scripts -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- leaflet-draw JS removed: using custom draw logic -->
+<script>
+// ── Mock Data ──
+const geofences = [
+  { id: 1, name: '僑力觀音廠', type: 'polygon', address: '桃園市觀音區工業五路 28 號', radius: null, sites: 4, created: '2026-04-10', lat: 25.0336, lng: 121.1142 },
+  { id: 2, name: '僑力中壢倉', type: 'circle', address: '桃園市中壢區環北路 400 號', radius: 300, sites: 2, created: '2026-04-10', lat: 24.9656, lng: 121.2250 },
+  { id: 3, name: '國瑞觀音廠', type: 'polygon', address: '桃園市觀音區工業一路 1 號', radius: null, sites: 3, created: '2026-04-08', lat: 25.0280, lng: 121.1080 },
+  { id: 4, name: '國瑞中壢廠', type: 'polygon', address: '桃園市中壢區中華路二段 585 號', radius: null, sites: 2, created: '2026-04-08', lat: 24.9580, lng: 121.2180 },
+  { id: 5, name: '台積電竹科 T12P8', type: 'circle', address: '新竹市科學園區力行路 1 號', radius: 200, sites: 1, created: '2026-04-05', lat: 24.7870, lng: 120.9960 },
+  { id: 6, name: '台積電中科 T15', type: 'circle', address: '台中市科學園區科雅路 6 號', radius: 250, sites: 1, created: '2026-04-05', lat: 24.2352, lng: 120.6156 },
+  { id: 7, name: '日通桃園營業所', type: 'circle', address: '桃園市蘆竹區南崁路一段 99 號', radius: 200, sites: 6, created: '2026-03-28', lat: 25.0478, lng: 121.2945 },
+  { id: 8, name: '日通五股轉運站', type: 'circle', address: '新北市五股區五權路 38 號', radius: 200, sites: 4, created: '2026-03-28', lat: 25.0810, lng: 121.4380 },
+  { id: 9, name: '萊爾富五股店', type: 'circle', address: '新北市五股區成泰路三段 200 號', radius: 150, sites: 1, created: '2026-03-20', lat: 25.0850, lng: 121.4350 },
+  { id: 10, name: '萊爾富桃園中正店', type: 'circle', address: '桃園市中正路 88 號', radius: 150, sites: 1, created: '2026-03-20', lat: 24.9936, lng: 121.3110 },
+  { id: 11, name: '全順林口站', type: 'circle', address: '新北市林口區文化三路一段 402 號', radius: 200, sites: 3, created: '2026-03-15', lat: 25.0736, lng: 121.3726 },
+  { id: 12, name: '全順桃園站', type: 'circle', address: '桃園市桃園區大興西路二段 6 號', radius: 200, sites: 2, created: '2026-03-15', lat: 24.9945, lng: 121.2980 },
+];
+
+let listMap, circleMap, polygonMap, detailMap, importMap;
+let circleLayer, detailLayer;
+let currentFilter = { text: '', type: 'all' };
+
+// ── Render Table ──
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  const filtered = geofences.filter(g => {
+    const textMatch = !currentFilter.text || g.name.includes(currentFilter.text) || g.address.includes(currentFilter.text);
+    const typeMatch = currentFilter.type === 'all' || g.type === currentFilter.type;
+    return textMatch && typeMatch;
+  });
+  tbody.innerHTML = filtered.map(g => `
+    <tr onclick="openDetail(${g.id})" style="cursor:pointer;">
+      <td><b>${g.name}</b></td>
+      <td><span class="badge ${g.type === 'circle' ? 'badge-circle' : 'badge-polygon'}">${g.type === 'circle' ? '⭕ 圓形' : '🔷 多邊形'}</span></td>
+      <td>${g.address}</td>
+      <td>${g.radius ? g.radius + 'm' : '—'}</td>
+      <td><span class="badge-count">${g.sites} 站點</span></td>
+      <td>${g.created}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openDetail(${g.id})">編輯</button></td>
+    </tr>
+  `).join('');
+  document.querySelector('.page-indicator').textContent = `顯示 1-${filtered.length} 筆，共 ${filtered.length} 筆`;
+}
+
+function filterTable(text) { currentFilter.text = text; renderTable(); }
+function filterByType(type) { currentFilter.type = type; renderTable(); }
+
+// ── List Map ──
+function initListMap() {
+  listMap = L.map('list-map').setView([24.95, 121.2], 9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '' }).addTo(listMap);
+  geofences.forEach(g => {
+    if (g.type === 'circle' && g.lat) {
+      L.circle([g.lat, g.lng], { radius: g.radius, color: '#4F46E5', fillColor: '#4F46E5', fillOpacity: 0.15, weight: 2 }).addTo(listMap).bindTooltip(g.name, { permanent: false });
+    } else if (g.lat) {
+      const offset = 0.003;
+      L.polygon([
+        [g.lat - offset, g.lng - offset], [g.lat + offset, g.lng - offset],
+        [g.lat + offset, g.lng + offset], [g.lat - offset, g.lng + offset]
+      ], { color: '#F59E0B', fillColor: '#F59E0B', fillOpacity: 0.15, weight: 2 }).addTo(listMap).bindTooltip(g.name, { permanent: false });
+    }
+  });
+}
+
+// ── Modals ──
+function closeAllModals() {
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+  document.getElementById('createDropdown').classList.remove('show');
+  resetImportSteps();
+}
+
+function toggleCreateDropdown() {
+  document.getElementById('createDropdown').classList.toggle('show');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dropdown')) document.getElementById('createDropdown').classList.remove('show');
+});
+
+function openModal(type) {
+  closeAllModals();
+  if (type === 'circle') {
+    document.getElementById('circleModal').classList.add('active');
+    setTimeout(() => {
+      if (!circleMap) {
+        circleMap = L.map('circleMap').setView([25.033, 121.565], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '' }).addTo(circleMap);
+        circleMap.on('click', function(e) {
+          placeCircleMarker(e.latlng.lat, e.latlng.lng);
+        });
+      }
+      circleMap.invalidateSize();
+    }, 200);
+  } else if (type === 'polygon') {
+    document.getElementById('polygonModal').classList.add('active');
+    setTimeout(() => {
+      if (!polygonMap) {
+        polygonMap = L.map('polygonMap').setView([25.033, 121.114], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '' }).addTo(polygonMap);
+        polyVertexGroup = L.layerGroup().addTo(polygonMap);
+        polygonMap.on('click', onPolygonMapClick);
+        updateVertexCounter();
+      }
+      polygonMap.invalidateSize();
+    }, 200);
+  } else if (type === 'import') {
+    document.getElementById('importModal').classList.add('active');
+  }
+}
+
+// ── Circle helpers ──
+let circleMarker, circleRing;
+function placeCircleMarker(lat, lng) {
+  const radius = parseInt(document.getElementById('radiusSlider').value);
+  if (circleMarker) circleMap.removeLayer(circleMarker);
+  if (circleRing) circleMap.removeLayer(circleRing);
+  circleMarker = L.marker([lat, lng], { draggable: true }).addTo(circleMap);
+  circleRing = L.circle([lat, lng], { radius, color: '#4F46E5', fillColor: '#4F46E5', fillOpacity: 0.15 }).addTo(circleMap);
+  circleMap.setView([lat, lng], 15);
+  // When marker is dragged, update circle and reverse-geocode
+  circleMarker.on('dragend', function(ev) {
+    const pos = ev.target.getLatLng();
+    circleRing.setLatLng(pos);
+    reverseGeocodeCircle(pos.lat, pos.lng);
+  });
+  // Reverse geocode the clicked/placed position
+  reverseGeocodeCircle(lat, lng);
+}
+
+function reverseGeocodeCircle(lat, lng) {
+  const addrInput = document.getElementById('circleAddress');
+  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=zh-TW&zoom=18`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.display_name) {
+        addrInput.value = data.display_name;
+      }
+    })
+    .catch(() => {
+      addrInput.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    });
+}
+
+function updateRadius(val) {
+  document.getElementById('radiusValue').textContent = val + 'm';
+  if (circleMarker && circleRing) {
+    circleRing.setRadius(parseInt(val));
+  }
+}
+
+function geocodeCircle() {
+  const addr = document.getElementById('circleAddress').value;
+  if (!addr) return;
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1&accept-language=zh-TW`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        placeCircleMarker(lat, lng);
+        showToast('已定位：' + addr);
+      } else {
+        showToast('無法定位此地址，請確認後重試或改用地圖點擊');
+      }
+    })
+    .catch(() => { showToast('定位失敗，請稍後再試'); });
+}
+
+function saveCircle() {
+  const name = document.getElementById('circleName').value;
+  if (!name) { showToast('請輸入圍籬名稱'); return; }
+  closeAllModals();
+  showToast('已建立圓形圍籬：' + name);
+}
+
+// ── Polygon helpers (custom draw) ──
+let polyVertices = [];        // array of L.marker
+let polyLines = null;         // L.polyline connecting vertices
+let polyShape = null;         // L.polygon (filled shape)
+let polyVertexGroup = null;   // L.layerGroup for vertex markers
+
+const vertexIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:14px;height:14px;background:#F59E0B;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3);cursor:grab;"></div>',
+  iconSize: [14, 14], iconAnchor: [7, 7]
+});
+const firstVertexIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:18px;height:18px;background:#EF4444;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3);cursor:grab;"></div>',
+  iconSize: [18, 18], iconAnchor: [9, 9]
+});
+
+function updateVertexCounter() {
+  const n = polyVertices.length;
+  const el = document.getElementById('vertexCounter');
+  const hint = document.getElementById('mapCursorHint');
+  if (n < 3) {
+    el.textContent = `頂點：${n} 個（還需 ${3 - n} 個）`;
+    el.style.color = 'var(--gray-400)';
+    hint.textContent = '點擊地圖加入頂點';
+  } else {
+    el.textContent = `頂點：${n} 個 ✓`;
+    el.style.color = 'var(--success)';
+    hint.textContent = '繼續加入頂點，或拖曳調整位置';
+  }
+}
+
+function getVertexLatLngs() {
+  return polyVertices.map(m => m.getLatLng());
+}
+
+function redrawPolyShape() {
+  const latlngs = getVertexLatLngs();
+  if (polyLines) polygonMap.removeLayer(polyLines);
+  if (latlngs.length >= 2) {
+    polyLines = L.polyline([...latlngs, latlngs[0]], { color: '#F59E0B', weight: 2, dashArray: '6,4' }).addTo(polygonMap);
+  }
+  if (polyShape) polygonMap.removeLayer(polyShape);
+  if (latlngs.length >= 3) {
+    polyShape = L.polygon(latlngs, { color: '#F59E0B', fillColor: '#F59E0B', fillOpacity: 0.15, weight: 2 }).addTo(polygonMap);
+  }
+  updateVertexCounter();
+}
+
+function addVertex(latlng) {
+  const idx = polyVertices.length;
+  const icon = idx === 0 ? firstVertexIcon : vertexIcon;
+  const marker = L.marker(latlng, { icon: icon, draggable: true }).addTo(polyVertexGroup);
+
+  marker.bindTooltip(`#${idx + 1}`, { permanent: true, direction: 'right', offset: [8, 0], className: 'vertex-tooltip' });
+  marker.on('drag', function() { redrawPolyShape(); });
+  marker.on('dragend', function() { redrawPolyShape(); });
+
+  // Right-click to remove vertex
+  marker.on('contextmenu', function(e) {
+    L.DomEvent.stopPropagation(e);
+    const i = polyVertices.indexOf(marker);
+    if (i > -1) {
+      polyVertexGroup.removeLayer(marker);
+      polyVertices.splice(i, 1);
+      polyVertices.forEach((m, j) => {
+        m.setIcon(j === 0 ? firstVertexIcon : vertexIcon);
+        m.unbindTooltip();
+        m.bindTooltip(`#${j + 1}`, { permanent: true, direction: 'right', offset: [8, 0], className: 'vertex-tooltip' });
+      });
+      redrawPolyShape();
+    }
+  });
+
+  polyVertices.push(marker);
+  redrawPolyShape();
+}
+
+function onPolygonMapClick(e) {
+  addVertex(e.latlng);
+}
+
+function searchPolygonLocation() {
+  const addr = document.getElementById('polygonSearch').value;
+  if (!addr) return;
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1&accept-language=zh-TW`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.length > 0) {
+        polygonMap.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 16);
+        showToast('已移動至：' + addr);
+      } else {
+        showToast('無法定位此地址，請確認後重試');
+      }
+    })
+    .catch(() => { showToast('定位失敗，請稍後再試'); });
+}
+
+function resetPolygon() {
+  polyVertices.forEach(m => polyVertexGroup.removeLayer(m));
+  polyVertices = [];
+  if (polyLines) { polygonMap.removeLayer(polyLines); polyLines = null; }
+  if (polyShape) { polygonMap.removeLayer(polyShape); polyShape = null; }
+  document.getElementById('polygonSearch').value = '';
+  updateVertexCounter();
+  showToast('已清除，可重新繪製');
+}
+function savePolygon() {
+  const name = document.getElementById('polygonName').value;
+  if (!name) { showToast('請輸入圍籬名稱'); return; }
+  if (polyVertices.length < 3) { showToast('至少需要 3 個頂點才能建立圍籬'); return; }
+  closeAllModals();
+  showToast('已建立多邊形圍籬：' + name + '（' + polyVertices.length + ' 個頂點）');
+}
+
+// ── Import flow ──
+let importStep = 1;
+function resetImportSteps() {
+  importStep = 1;
+  document.getElementById('importStepUpload').style.display = '';
+  document.getElementById('importStepPreview').style.display = 'none';
+  document.getElementById('importStepResult').style.display = 'none';
+  document.getElementById('importNextBtn').style.display = 'none';
+  document.getElementById('importDoneBtn').style.display = 'none';
+  updateImportStepUI();
+}
+
+function updateImportStepUI() {
+  [1,2,3].forEach(i => {
+    const el = document.getElementById('importStep' + i);
+    if (i === importStep) { el.style.background = ''; el.style.color = ''; el.className = 'badge badge-circle'; }
+    else if (i < importStep) { el.style.background = 'var(--success-light)'; el.style.color = 'var(--success)'; el.className = 'badge'; }
+    else { el.style.background = 'var(--gray-100)'; el.style.color = 'var(--gray-400)'; el.className = 'badge'; }
+  });
+}
+
+function simulateUpload() {
+  importStep = 2;
+  updateImportStepUI();
+  document.getElementById('importStepUpload').style.display = 'none';
+  document.getElementById('importStepPreview').style.display = '';
+  document.getElementById('importNextBtn').style.display = '';
+  setTimeout(() => {
+    if (!importMap) {
+      importMap = L.map('importMap').setView([24.5, 121.0], 7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '' }).addTo(importMap);
+    }
+    importMap.invalidateSize();
+    // Add green markers
+    [[25.085, 121.435], [24.994, 121.311], [24.803, 120.968], [24.235, 120.616], [22.627, 120.313]].forEach(ll => {
+      L.circleMarker(ll, { radius: 8, color: '#10B981', fillColor: '#10B981', fillOpacity: 0.6 }).addTo(importMap);
+    });
+  }, 200);
+}
+
+function importNextStep() {
+  importStep = 3;
+  updateImportStepUI();
+  document.getElementById('importStepPreview').style.display = 'none';
+  document.getElementById('importStepResult').style.display = '';
+  document.getElementById('importNextBtn').style.display = 'none';
+  document.getElementById('importDoneBtn').style.display = '';
+}
+
+// ── Detail / Edit ──
+function openDetail(id) {
+  const g = geofences.find(f => f.id === id);
+  if (!g) return;
+  document.getElementById('detailTitle').textContent = g.name;
+  document.getElementById('detailName').value = g.name;
+  document.getElementById('detailType').value = g.type === 'circle' ? '圓形' : '多邊形';
+  document.getElementById('detailAddress').value = g.address;
+  document.getElementById('detailMemo').value = '';
+  document.getElementById('detailRadiusGroup').style.display = g.type === 'circle' ? '' : 'none';
+  if (g.radius) {
+    document.getElementById('detailRadiusSlider').value = g.radius;
+    document.getElementById('detailRadiusValue').textContent = g.radius + 'm';
+  }
+  // Reset tabs
+  document.querySelectorAll('#detailModal .tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.getElementById('detailInfo').style.display = '';
+  document.getElementById('detailSites').style.display = 'none';
+  document.getElementById('detailHistory').style.display = 'none';
+
+  document.getElementById('detailModal').classList.add('active');
+  setTimeout(() => {
+    if (!detailMap) {
+      detailMap = L.map('detailMap').setView([g.lat, g.lng], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '' }).addTo(detailMap);
+    } else {
+      detailMap.setView([g.lat, g.lng], 14);
+      if (detailLayer) detailMap.removeLayer(detailLayer);
+    }
+    if (g.type === 'circle') {
+      detailLayer = L.circle([g.lat, g.lng], { radius: g.radius, color: '#4F46E5', fillColor: '#4F46E5', fillOpacity: 0.15 }).addTo(detailMap);
+    } else {
+      const offset = 0.003;
+      detailLayer = L.polygon([
+        [g.lat - offset, g.lng - offset], [g.lat + offset, g.lng - offset],
+        [g.lat + offset, g.lng + offset], [g.lat - offset, g.lng + offset]
+      ], { color: '#F59E0B', fillColor: '#F59E0B', fillOpacity: 0.15 }).addTo(detailMap);
+    }
+    detailMap.invalidateSize();
+  }, 200);
+}
+
+function updateDetailRadius(val) {
+  document.getElementById('detailRadiusValue').textContent = val + 'm';
+  if (detailLayer && detailLayer.setRadius) detailLayer.setRadius(parseInt(val));
+}
+
+function switchDetailTab(el, tabId) {
+  el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['detailInfo', 'detailSites', 'detailHistory'].forEach(id => {
+    document.getElementById(id).style.display = id === tabId ? '' : 'none';
+  });
+  if (tabId === 'detailInfo' && detailMap) setTimeout(() => detailMap.invalidateSize(), 100);
+}
+
+function saveEdit() { closeAllModals(); showToast('圍籬已更新'); }
+
+// ── Delete ──
+function confirmDelete() { document.getElementById('deleteConfirm').classList.add('active'); }
+function closeConfirm() { document.getElementById('deleteConfirm').classList.remove('active'); }
+function doDelete() { closeConfirm(); closeAllModals(); showToast('圍籬已刪除'); }
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = '✓ ' + msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+  renderTable();
+  setTimeout(initListMap, 100);
+});
+</script>
+</body>
+</html>
