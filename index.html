@@ -700,6 +700,19 @@
 
         <div class="setting-row">
           <div class="label-area">
+            <div class="label">可能逾時預警</div>
+            <div class="hint">訂單配達時間 − 當下時間 ≤ 預警提前量，且車輛尚未進入該訂單綁定的圍籬 → 提前告警。同一張訂單只觸發一次。</div>
+            <div class="inline-number">
+              <span>預警提前量</span>
+              <input type="number" value="10" min="1" max="120" />
+              <span>分鐘</span>
+            </div>
+          </div>
+          <label class="switch"><input type="checkbox" /><span class="switch-slider"></span></label>
+        </div>
+
+        <div class="setting-row">
+          <div class="label-area">
             <div class="label">應到未到異常</div>
             <div class="hint">預計抵達時間已過仍無進場事件 → 告警</div>
             <div class="inline-number">
