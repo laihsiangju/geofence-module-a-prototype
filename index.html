@@ -727,11 +727,11 @@
         <div class="setting-row">
           <div class="label-area">
             <div class="label">應到未到異常</div>
-            <div class="hint">預計抵達時間已過仍無進場事件 → 告警</div>
+            <div class="hint">觸發條件：當下時間 − 訂單配達開始時間 ≥ 超時門檻，且車輛尚未進入該訂單綁定的圍籬。同一張訂單只觸發一次。</div>
             <div class="inline-number">
-              <span>超過預計</span>
+              <span>超時門檻</span>
               <input type="number" value="30" min="1" max="180" />
-              <span>分鐘仍無進場事件</span>
+              <span>分鐘</span>
             </div>
           </div>
           <label class="switch"><input type="checkbox" /><span class="switch-slider"></span></label>
