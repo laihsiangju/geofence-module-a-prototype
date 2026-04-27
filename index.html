@@ -700,6 +700,19 @@
 
         <div class="setting-row">
           <div class="label-area">
+            <div class="label">提早到貨提醒</div>
+            <div class="hint">進場事件時間 比訂單配達時間提早 ≥ 提早門檻 → 告警（用於追溯排程異常 / 提醒客戶準備收貨）。同一張訂單只觸發一次，僅對綁定圍籬的訂單生效。</div>
+            <div class="inline-number">
+              <span>提早門檻</span>
+              <input type="number" value="30" min="1" max="180" />
+              <span>分鐘</span>
+            </div>
+          </div>
+          <label class="switch"><input type="checkbox" /><span class="switch-slider"></span></label>
+        </div>
+
+        <div class="setting-row">
+          <div class="label-area">
             <div class="label">可能逾時預警</div>
             <div class="hint">訂單配達時間 − 當下時間 ≤ 預警提前量，且車輛尚未進入該訂單綁定的圍籬 → 提前告警。同一張訂單只觸發一次。</div>
             <div class="inline-number">
